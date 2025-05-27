@@ -1,0 +1,11 @@
+# backend
+numexpr
+fastapi
+uvicorn
+langchain_core
+langchain_openai
+langchain
+langgraph
+
+# frontend
+gradio
