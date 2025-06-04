@@ -90,7 +90,7 @@ def get_math_tool(llm: ChatOpenAI) -> StructuredTool:
 
     def calculate_expression(
         problem: str,
-        context: Optional[List[str]] = None,
+        context: Optional[List[str]] = [],
         config: Optional[RunnableConfig] = None,
     ):
         chain_input = {"problem": problem}
