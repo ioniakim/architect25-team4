@@ -1,4 +1,5 @@
 **/__pycache__/
+.gradio
 # Created by https://www.toptal.com/developers/gitignore/api/python,visualstudiocode,vim,pycharm,pycharm+iml,pycharm+all
 # Edit at https://www.toptal.com/developers/gitignore?templates=python,visualstudiocode,vim,pycharm,pycharm+iml,pycharm+all
 
