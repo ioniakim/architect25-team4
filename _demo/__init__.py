@@ -14,8 +14,18 @@ except ImportError:
     from tools.search_tool import get_search_tool
     from tools.weather_tool import get_weather_tool
 
+from .tools.weather_tool import get_weather_tool
+from .tools.mcp_warpper_tool import get_weather_agent_tool
+
 
 def prepare():
+    
+    #LLM.set(model='gpt-4.1-mini', api_key=API_KEY, base_url='https://api.openai.com/v1')
+
+    #ToolManager.set(_calculate)
+    #ToolManager.set(get_weather_tool(), name='get_weather_info')
+    #ToolManager.set(get_weather_agent_tool(), name='get_weather_agent')
+
     openai_api_key = os.getenv("OPENAI_API_KEY", None)
     gemini_api_key = os.getenv("GEMINI_API_KEY", None)
     if openai_api_key is not None:
@@ -41,3 +51,4 @@ def prepare():
     ToolManager.set(get_math_tool(LLM.get()))
     ToolManager.set(get_search_tool())
     ToolManager.set(get_weather_tool())
+
