@@ -1,64 +1,13 @@
-import asyncio
 from typing import List, get_type_hints, Optional
-from langchain_core.tools import BaseTool
-from langchain_core.tools import StructuredTool
-from langchain_mcp_adapters.client import MultiServerMCPClient
-from langgraph.prebuilt import create_react_agent
-
-from langchain_mcp_adapters.client import MultiServerMCPClient
-from langgraph.prebuilt import create_react_agent
+from pydantic import BaseModel, Field
 import asyncio
 import threading
-
-from pydantic import BaseModel, Field
-from typing import Optional
-from langchain_core.tools import StructuredTool
-from typing import List
-
 from langchain_core.tools import BaseTool
-from typing import List, get_type_hints, Optional
-
+from langchain_core.tools import StructuredTool
+from langchain_mcp_adapters.client import MultiServerMCPClient
+from langgraph.prebuilt import create_react_agent
 from managers.llm_manager import LLM
 
-
-# class AgentClient(BaseTool):
-#     def __init__(self, **kwargs):
-#         super().__init__()
-#         self.name = kwargs["name"]
-#         self.description = kwargs["description"]
-
-#     def invoke():
-#         self.run()
-    
-#     def run():
-#         raise NotImplemented()
-    
-
-# class McpAgentClient(AgentClient):
-#     def __init__(self, **kwargs):
-#         super().__init__(kwargs)
-#         mcp_config = kwargs["mcp_config"]
-
-#     def launch():
-
-
-# class RestApiAgentClient(AgentClient):
-#     def __init__(self, **kwargs):
-#         super().__init__(kwargs)
-#         rest_api_config = kwargs["rest_api_config"]
-#         pass
-
-
-# config = {
-#     "type": "MCP or RestAPI"
-#     "name": "agent_name",
-#     "description": "description",
-
-#     "mcp": {
-#         "transport": "streamable_http",
-#         "endpoint": "url",
-#     },
-# }
 
 # This function runs an async coroutine
 def async_to_sync_safe(coro):
@@ -135,7 +84,6 @@ def generate_tool_description(tool: StructuredTool) -> str:
     return "\n".join(lines)
 
 
-
 def generate_descriptions_for_tools(tools: List[BaseTool]) -> List[str]:
     header = (
         "You are an agent equipped with a set of MCP tools. Use these tools to accurately fulfill user requests.\n\n"
@@ -156,14 +104,13 @@ def generate_descriptions_for_tools(tools: List[BaseTool]) -> List[str]:
     return header + "\n\n" + "\n\n".join(tool_descriptions)
 
 
-def get_agent_client(llm, config: dict) -> BaseTool:
+def get_agent_client(config: dict, llm=None) -> BaseTool:
     name = config["name"]
     mcp_config = config["mcp"]
-
     client = MultiServerMCPClient({
         name: {
-            "transport": mcp_config.get("transport", "streamable_http"),
-            "url": mcp_config["endpoint"]
+            "url": mcp_config["url"],
+            "transport": mcp_config.get("transport", "streamable-http")
         },
     })
     tools = asyncio.run(client.get_tools())
