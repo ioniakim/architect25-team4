@@ -6,6 +6,12 @@ from langchain import hub
 from langchain_core.prompts import ChatPromptTemplate
 
 
+
+# TODO:
+plan_prompt_template_path = '/home/user/bogun/source/architect25-team4/managers/plan.json'
+join_prompt_template_path = '/home/user/bogun/source/architect25-team4/managers/join.json'
+# hub.
+
 _plan: ChatPromptTemplate = hub.pull("wfh/llm-compiler")
 _join: ChatPromptTemplate = hub.pull("wfh/llm-compiler-joiner")
 _replan: str = \
