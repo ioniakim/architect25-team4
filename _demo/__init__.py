@@ -8,8 +8,6 @@ except ImportError:
 try:
     from .tools.math_tool import get_math_tool
     from .tools.search_tool import get_search_tool
-    # from .tools.weather_tool import get_weather_tool
-    # from .tools.mcp_warpper_tool import get_weather_agent_tool as get_weather_tool
 except ImportError:
     from tools.math_tool import get_math_tool
     from tools.search_tool import get_search_tool
