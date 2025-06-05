@@ -8,7 +8,8 @@ except ImportError:
 try:
     from .tools.math_tool import get_math_tool
     from .tools.search_tool import get_search_tool
-    from .tools.weather_tool import get_weather_tool
+    # from .tools.weather_tool import get_weather_tool
+    # from .tools.mcp_warpper_tool import get_weather_agent_tool as get_weather_tool
 except ImportError:
     from tools.math_tool import get_math_tool
     from tools.search_tool import get_search_tool
@@ -45,8 +46,7 @@ def prepare():
         print(f'LLM: {base_url}')
     LLM.set(model=model, api_key=api_key, base_url=base_url, max_tokens=max_tokens, temperature=0)
 
-    _calculate = get_math_tool(LLM.get())
-    ToolManager.set(_calculate)
+    ToolManager.set(get_math_tool(LLM.get()))
     #ToolManager.set(get_weather_tool(), name='get_weather_info')
     ToolManager.set(get_weather_agent_tool(), name='weather_agent')
     ToolManager.set(get_calendar_agent_tool(), name='calendar_agent')
