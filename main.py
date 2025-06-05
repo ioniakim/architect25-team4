@@ -9,9 +9,10 @@ from langchain_core.messages import HumanMessage
 from managers.llm_manager import LLM
 from managers.tool_manager import ToolManager
 from managers.prompt_manager import PromptManager
-from clients.agent_client import get_agent_client
+# from clients.agent_client import get_agent_client
 from conductor import build
 from _demo import prepare
+import agents
 
 
 prepare()
@@ -32,11 +33,12 @@ config = {
     ),
     "mcp": {
         "transport": "streamable_http",
-        "endpoint": "http://localhost:8001/mcp",
+        "url": "http://localhost:8001/mcp",
     },
 }
 
-ToolManager.set(get_agent_client(LLM.get(), config))
+
+ToolManager.set(agents.get_agent_client("mcp", config, LLM.get()))
 
 
 async def generate_response(user_message: str) -> AsyncGenerator[bytes, None]:
