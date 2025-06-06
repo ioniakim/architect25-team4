@@ -52,9 +52,9 @@ def create_subagent_tool(mcp_agent, tool_name: str = "subagent", desc: str = Non
         return output["output"] if isinstance(output, dict) and "output" in output else str(output)
 
     AGENT_TOOL_DESCRIPTION = (
-        "weather_agent(input: str, context: Optional[list[str]]) -> str\n"
+        "mail_agent(input: str, context: Optional[list[str]]) -> str\n"
         "- This is a unified interface to a multi-tool agent. It takes a natural language input, interprets the request, and uses internal MCP tools to execute the appropriate actions.\n"
-        "- The agent is equipped with multiple tools (e.g., math, weather queries, etc.) and can autonomously choose the most suitable tool for the user's intent.\n"
+        "- The agent is equipped with multiple tools about mail service and can autonomously choose the most suitable tool for the user's intent.\n"
         "- The `input` should be a plain English request describing what the user wants to know or compute.\n"
         "- The `context` field is optional and can include supplemental information from previous steps or system memory to improve accuracy.\n"
         "- The output is a final answer generated after the agent completes reasoning and tool execution.\n"
@@ -114,12 +114,12 @@ def generate_descriptions_for_tools(tools: List[BaseTool]) -> List[str]:
     tool_descriptions = [generate_tool_description(tool) for tool in tools]
     return header + "\n\n" + "\n\n".join(tool_descriptions)
 
-def get_weather_agent_tool() -> StructuredTool:
+def get_mail_agent_tool() -> StructuredTool:
     client = MultiServerMCPClient(
         {
             "weather": {
                 "transport": "streamable_http",
-                "url": "http://localhost:8001/mcp"
+                "url": "http://localhost:8002/mcp"
             },
         }
     )
@@ -130,6 +130,6 @@ def get_weather_agent_tool() -> StructuredTool:
     agent = create_react_agent(model=LLM.get(), tools=tools, prompt=desc)
 
     # StructuredTool로 wrapping
-    weather_agent_tool = create_subagent_tool(agent, tool_name="weather_agent")
+    mail_agent_tool = create_subagent_tool(agent, tool_name="mail_agent")
 
-    return weather_agent_tool
+    return mail_agent_tool

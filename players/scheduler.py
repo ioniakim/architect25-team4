@@ -39,7 +39,9 @@ def _execute_task(task, observations, config):
         return tool_to_use
     args = task["args"]
     try:
-        if isinstance(args, str):
+        if args is None:
+            resolved_args = None
+        elif isinstance(args, str):
             resolved_args = _resolve_arg(args, observations)
         elif isinstance(args, dict):
             resolved_args = {
