@@ -2,6 +2,7 @@ from langchain_mcp_adapters.client import MultiServerMCPClient
 from langgraph.prebuilt import create_react_agent
 import asyncio
 import threading
+import json
 
 from pydantic import BaseModel, Field
 from typing import Optional
@@ -12,6 +13,8 @@ from langchain_core.tools import BaseTool
 from typing import List, get_type_hints, Optional
 
 from managers.llm_manager import LLM
+from langchain.schema.messages import ToolMessage
+from langgraph.prebuilt.chat_agent_executor import AgentState
 
 # This function runs an async coroutine
 def async_to_sync_safe(coro):
@@ -39,24 +42,69 @@ def create_subagent_tool(mcp_agent, tool_name: str = "subagent", desc: str = Non
         input: str = Field(..., description="The input string to process through the sub-agent")
         context: Optional[list[str]] = Field(default=[], description="Optional context")
 
+    class CustomState(AgentState):
+        user_name: str
+
     # Define the tool function
     def call_agent(input: str, context: Optional[list[str]] = []) -> str:
         # You can optionally inject context if needed
-        agent_input = {"messages": [{"role": "user", "content": input}]}
+        agent_input = {
+            "messages": [
+                {
+                    "role": "system",
+                    "content": [{
+                        "type": "text",
+                        "text": ",".join(context) if context and isinstance(context, list) and any(context) else str(context)
+                    }]
+                },
+                {
+                    "role": "user",
+                    "content": [{
+                        "type": "text",
+                        "text": input
+                    }]
+                }
+            ]
+        }
+
         #agent_input = {"input": input}
-        if context:
-            config={"configurable": {"context": context}}
-        else:
-            config = {}
-        output = async_to_sync_safe(mcp_agent.ainvoke(agent_input, config=config))
-        return output["output"] if isinstance(output, dict) and "output" in output else str(output)
+        # if context:
+        #     config={"configurable": {"context": context}}
+        # else:
+        #     config = {}
+        print("#############################################")
+        print(f"Calling [{tool_name}] agent with input: {input} and context: {context}")
+        print("#############################################")
+        output = async_to_sync_safe(mcp_agent.ainvoke(agent_input))
+        
+        # ToolMessage의 content만 추출
+        content = [
+            message.content
+            for message in output['messages']
+            if isinstance(message, ToolMessage)
+        ]
+        
+        try:
+            result = json.loads(content[-1])
+        except json.JSONDecodeError:
+            result = content
+        
+        if isinstance(result, list) and len(result) == 1:
+            result = result[0]
+
+        print("#############################################")
+        print(f"Output from [{tool_name}] agent: {result}")
+        print("#############################################")
+        
+        return result
 
     AGENT_TOOL_DESCRIPTION = (
         "mail_agent(input: str, context: Optional[list[str]]) -> str\n"
         "- This is a unified interface to a multi-tool agent. It takes a natural language input, interprets the request, and uses internal MCP tools to execute the appropriate actions.\n"
         "- The agent is equipped with multiple tools about mail service and can autonomously choose the most suitable tool for the user's intent.\n"
         "- The `input` should be a plain English request describing what the user wants to know or compute.\n"
-        "- The `context` field is optional and can include supplemental information from previous steps or system memory to improve accuracy.\n"
+        "- The `context` includes supplemental information from previous steps or system memory to improve accuracy.\n"
+        "- If any required information is missing or unclear, the agent must rely only on the provided `context`. It must not access or explore other emails to guess missing data.\n"
         "- The output is a final answer generated after the agent completes reasoning and tool execution.\n"
         "- You should not assume the agent knows everything; it only knows what its tools allow it to observe or compute.\n"
         "- Do not include multiple unrelated questions in a single input. The agent processes one task per request.\n"

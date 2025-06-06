@@ -82,7 +82,14 @@ def _resolve_arg(arg: Union[str, Any], observations: Dict[int, Any]):
         # Return the match group, in this case the index, from the string. This is the index
         # number we get back.
         idx = int(match.group(1))
-        return str(observations.get(idx, match.group(0)))
+
+        value = observations.get(idx, match.group(0))
+
+        # 조건에 따른 반환
+        if value in (None, [], {}, ""):
+            return []
+        else:
+            return str(value)
 
     # For dependencies on other tasks
     # if isinstance(arg, str):
@@ -91,7 +98,9 @@ def _resolve_arg(arg: Union[str, Any], observations: Dict[int, Any]):
     #     return [_resolve_arg(a, observations) for a in arg]
     # else:
     #     return str(arg)
-    if isinstance(arg, str):
+    if arg is None:
+        output = None
+    elif isinstance(arg, str):
         output = re.sub(_id_pattern, replace_match, arg)
     elif isinstance(arg, list):
         output = [_resolve_arg(a, observations) for a in arg]

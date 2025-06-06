@@ -13,6 +13,9 @@ from langchain_core.tools import BaseTool
 from typing import List, get_type_hints, Optional
 
 from managers.llm_manager import LLM
+
+from langchain.agents import AgentExecutor, initialize_agent
+from langchain.agents.agent_types import AgentType
 from langchain.schema.messages import ToolMessage
 
 # This function runs an async coroutine
@@ -62,24 +65,23 @@ def create_subagent_tool(mcp_agent, tool_name: str = "subagent", desc: str = Non
                 }
             ]
         }
-
-        #agent_input = {"input": input}
+    
         # if context:
         #     config={"configurable": {"context": context}}
         # else:
         #     config = {}
         print("#############################################")
-        print(f"Calling [{tool_name}] agent with input: {input} and context: {context}")
+        print(f"Calling [{tool_name}] agent with input: {agent_input}")
         print("#############################################")
         output = async_to_sync_safe(mcp_agent.ainvoke(agent_input))
-        
+
         # ToolMessage의 content만 추출
         content = [
             message.content
             for message in output['messages']
             if isinstance(message, ToolMessage)
         ]
-        
+
         try:
             result = json.loads(content[-1])
         except json.JSONDecodeError:
@@ -87,17 +89,18 @@ def create_subagent_tool(mcp_agent, tool_name: str = "subagent", desc: str = Non
 
         if isinstance(result, list) and len(result) == 1:
             result = result[0]
-
+        
         print("#############################################")
         print(f"Output from [{tool_name}] agent: {result}")
         print("#############################################")
         
         return result
 
+
     AGENT_TOOL_DESCRIPTION = (
-        "weather_agent(input: str, context: Optional[list[str]]) -> str\n"
+        "jira_agent(input: str, context: Optional[list[str]]) -> str\n"
         "- This is a unified interface to a multi-tool agent. It takes a natural language input, interprets the request, and uses internal MCP tools to execute the appropriate actions.\n"
-        "- The agent is equipped with multiple tools (e.g., math, weather queries, etc.) and can autonomously choose the most suitable tool for the user's intent.\n"
+        "- The agent is equipped with multiple tools about mail service and can autonomously choose the most suitable tool for the user's intent.\n"
         "- The `input` should be a plain English request describing what the user wants to know or compute.\n"
         "- The `context` field is optional and can include supplemental information from previous steps or system memory to improve accuracy.\n"
         "- The output is a final answer generated after the agent completes reasoning and tool execution.\n"
@@ -157,12 +160,12 @@ def generate_descriptions_for_tools(tools: List[BaseTool]) -> List[str]:
     tool_descriptions = [generate_tool_description(tool) for tool in tools]
     return header + "\n\n" + "\n\n".join(tool_descriptions)
 
-def get_weather_agent_tool() -> StructuredTool:
+def get_jira_agent_tool() -> StructuredTool:
     client = MultiServerMCPClient(
         {
             "weather": {
                 "transport": "streamable_http",
-                "url": "http://localhost:8001/mcp"
+                "url": "http://localhost:8004/mcp"
             },
         }
     )
@@ -173,6 +176,6 @@ def get_weather_agent_tool() -> StructuredTool:
     agent = create_react_agent(model=LLM.get(), tools=tools, prompt=desc)
 
     # StructuredTool로 wrapping
-    weather_agent_tool = create_subagent_tool(agent, tool_name="weather_agent")
+    jira_agent_tool = create_subagent_tool(agent, tool_name="jira_agent")
 
-    return weather_agent_tool
+    return jira_agent_tool

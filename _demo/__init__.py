@@ -9,9 +9,10 @@ try:
 except ImportError:
     from tools.math_tool import get_math_tool
 
-from .tools.weather_tool import get_weather_tool
+#from .tools.weather_tool import get_weather_tool
 from .tools.mcp_warpper_tool import get_weather_agent_tool
 from .tools.mcp_warpper_tool_mail import get_mail_agent_tool
+from .tools.mcp_warpper_tool_jira import get_jira_agent_tool
 
 
 def prepare():
@@ -24,3 +25,4 @@ def prepare():
     #ToolManager.set(get_weather_tool(), name='get_weather_info')
     ToolManager.set(get_weather_agent_tool(), name='weather_agent')
     ToolManager.set(get_mail_agent_tool(), name='mail_agent')
+    ToolManager.set(get_jira_agent_tool(), name='jira_agent')
