@@ -1,5 +1,6 @@
 import asyncio
 from typing import List, Optional, get_type_hints
+import threading
 
 # New imports for creating a StructuredTool
 from pydantic import BaseModel, Field
@@ -68,7 +69,28 @@ async def _create_agent(config: dict, llm) -> BaseTool:
     return agent_tool
 
 
-def _create_agent_as_tool(agent_executor, system_prompt: str, tool_name: str, tool_description: str) -> StructuredTool:
+# This function runs an async coroutine
+def _async_to_sync_safe(coro):
+    result = None
+    error = None
+
+    def runner():
+        nonlocal result, error
+        try:
+            result = asyncio.run(coro)
+        except Exception as e:
+            error = e
+
+    thread = threading.Thread(target=runner)
+    thread.start()
+    thread.join()
+
+    if error:
+        raise error
+    return result
+
+
+def _create_agent_as_tool(agent_executor, system_prompt: str, tool_name: str, tool_description: str) -> BaseTool:
     """
     Wraps a LangGraph agent executor in a StructuredTool.
     """
@@ -78,7 +100,7 @@ def _create_agent_as_tool(agent_executor, system_prompt: str, tool_name: str, to
         input: str = Field(description="A detailed, natural language query for the agent.")
 
     # Define the tool function
-    async def run_agent(input: str) -> str:
+    def run_agent(input: str) -> str:
         """The async function that will be executed when the tool is called."""
 
         agent_input = {
@@ -88,8 +110,8 @@ def _create_agent_as_tool(agent_executor, system_prompt: str, tool_name: str, to
             ]
         }
 
-        print(f"\n\nFunction Call:\n\tinput={input}")
-        result = await agent_executor.ainvoke(agent_input)
+        print(f"\nFunction Call:\n\tinput={input}")
+        result = _async_to_sync_safe(agent_executor.ainvoke(agent_input))
         print(f"Function Call: result: {result}")
         return result['messages'][-1].content
 
@@ -98,7 +120,7 @@ def _create_agent_as_tool(agent_executor, system_prompt: str, tool_name: str, to
     return StructuredTool.from_function(
         name=tool_name,
         description=tool_description,
-        coroutine=run_agent,  # <-- THE FIX IS HERE
+        coroutine=run_agent,  
         args_schema=SubAgentInput
     )
 
@@ -165,6 +187,13 @@ def _generate_prompt_for_tools(tools: List[BaseTool]):
 
 
 
+
+
+
+##################################################################################
+# Test Code
+##################################################################################
+
 def _get_test_weather_agent_config():
     return {
         "name": "weather_agent",
@@ -185,12 +214,12 @@ def _get_test_knox_mail_agent_config():
         }
     }
 
-async def _atest_weather_agent(agent):
+def _test_weather_agent(agent):
     print("\n#############################################\n")
     print("\nWeather Agent Test")
     query = "What is the fine dust level in Busan?"
     
-    tool_result = await agent.ainvoke({"input": query})
+    tool_result = agent.invoke({"input": query})
     
     print(f"\nQuery: '{query}'")
     print(f"Result from tool: {tool_result}")
@@ -198,12 +227,12 @@ async def _atest_weather_agent(agent):
     query2 = "What is the weather like in Busan and what is the fine dust level there?"
     print("#############################################")
     print(f"Query 2: {query2}")
-    tool_result2 = await agent.ainvoke({"input": query2})
+    tool_result2 = agent.invoke({"input": query2})
 
     print(f"Result from tool: {tool_result2}")
 
 
-async def _atest_knox_mail_agent(agent):
+def _test_knox_mail_agent(agent):
     print("\n#############################################\n")
     print("\nKnox Mail Agent Test")
 
@@ -211,14 +240,14 @@ async def _atest_knox_mail_agent(agent):
     query = "Email at ionia.kim@samsung.com with the subject 'Hi,' the message I'm fine."
     
     # This ainvoke call was already correct. It will now work as expected.
-    tool_result = await agent.ainvoke({"input": query})
+    tool_result = agent.invoke({"input": query})
     
     print(f"\nQuery: '{query}'")
     print(f"Result from tool: {tool_result}")
 
     print("\n--- Composite Task")
     query = "Read the first mail from unread mail"
-    tool_result = await agent.ainvoke({"input": query})
+    tool_result = agent.invoke({"input": query})
 
     print(f"\nQuery: '{query}'")
     print(f"Result from tool: {tool_result}")
@@ -236,9 +265,8 @@ def _test():
     knox_mail_agent = get_agent_client(knox_mail_agent_config, llm)
 
 
-    with asyncio.Runner() as runner: 
-        runner.run(_atest_weather_agent(weather_agent))
-        runner.run(_atest_knox_mail_agent(knox_mail_agent))
+    _test_weather_agent(weather_agent)
+    _test_knox_mail_agent(knox_mail_agent)
 
 if __name__ == '__main__':
     _test()
