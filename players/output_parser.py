@@ -35,39 +35,21 @@ def _ast_parse(arg: str) -> Any:
         return arg
 
 
-def _parse_llm_compiler_action_args(args: str, tool: Union[str, BaseTool]) -> list[Any]:
+def _parse_llm_compiler_action_args(args: str, tool: Union[str, BaseTool]) -> dict:
     """Parse arguments from a string."""
-
-    # TODO: test
-    # if args is None or args == '':
-    #     return {}
-    # if isinstance(tool, str):
-    #     return {}
-    # arg_names = list(tool.args.keys())
-    # return {arg_names[0]: args}
-
-    if args == "":
-        return ()
-    if isinstance(tool, str):
-        return ()
+    # This pattern will find all key=value pairs.
+    # It handles keys that are valid python identifiers and values that are
+    # placeholders, numbers, or simple strings.
+    pattern = r'(\w+)=([$\w\d\."\'-]+)'
+    
     extracted_args = {}
-    tool_key = None
-    prev_idx = None
-    for key in tool.args.keys():
-        # Split if present
-        if f"{key}=" in args:
-            idx = args.index(f"{key}=")
-            if prev_idx is not None:
-                extracted_args[tool_key] = _ast_parse(
-                    args[prev_idx:idx].strip().rstrip(",")
-                )
-            args = args.split(f"{key}=", 1)[1]
-            tool_key = key
-            prev_idx = 0
-    if prev_idx is not None:
-        extracted_args[tool_key] = _ast_parse(
-            args[prev_idx:].strip().rstrip(",").rstrip(")")
-        )
+    matches = re.findall(pattern, args)
+    
+    for key, value in matches:
+        # The _ast_parse function will handle converting strings to numbers/booleans
+        # but will correctly leave placeholders like '$1' as a string.
+        extracted_args[key] = _ast_parse(value)
+        
     return extracted_args
 
 
@@ -166,9 +148,9 @@ class LLMCompilerPlanParser(BaseTransformOutputParser[dict], extra="allow"):
             buffer.append(suffix)
 
     def _parse_task(self, line: str, thought: Optional[str] = None) -> tuple[Task, str]:
-        print(f'@@ {__file__} >> _parse_task - line: {line}')
-        print(f'@@ {__file__} >> _parse_task - thought: {thought}')
-        print(f'@@ {__file__} >> _parse_task - self.tools: {self.tools}')
+        # print(f'@@ {__file__} >> _parse_task - line: {line}')
+        # print(f'@@ {__file__} >> _parse_task - thought: {thought}')
+        # print(f'@@ {__file__} >> _parse_task - self.tools: {self.tools}')
         task = None
         if match := re.match(THOUGHT_PATTERN, line):
             # Optionally, action can be preceded by a thought

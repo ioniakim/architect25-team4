@@ -10,10 +10,12 @@ except ImportError:
 try:
     from .tools.math_tool import get_math_tool
     from .tools.search_tool import get_search_tool
+    from .tools.test_tool import get_test_tools
 except ImportError:
     from tools.math_tool import get_math_tool
     from tools.search_tool import get_search_tool
     from tools.weather_tool import get_weather_tool
+    from tools.test_tool import get_test_tools
 
 #from .tools.weather_tool import get_weather_tool
 from .tools.mcp_warpper_tool import get_weather_agent_tool
@@ -58,10 +60,15 @@ def prepare():
         print(f'LLM: {config["base_url"]}')
     LLM.set(get_llm_client(llm_type, config))
 
+    # --- Add the test tools ---
+    for tool in get_test_tools():
+        ToolManager.set(tool)
+    # --------------------------
+
     ToolManager.set(get_math_tool(LLM.get()))
-    #ToolManager.set(get_weather_tool(), name='get_weather_info')
-    ToolManager.set(get_weather_agent_tool(), name='weather_agent')
-    ToolManager.set(get_calendar_agent_tool(), name='calendar_agent')
-    ToolManager.set(get_mail_agent_tool(), name='mail_agent')
-    ToolManager.set(get_jira_agent_tool(), name='jira_agent')
-    ToolManager.set(get_contact_agent_tool(), name='contact_agent')
+    # ToolManager.set(get_weather_agent_tool(), name='weather_agent')
+    # ToolManager.set(get_calendar_agent_tool(), name='calendar_agent')
+    # ToolManager.set(get_mail_agent_tool(), name='mail_agent')
+    # ToolManager.set(get_jira_agent_tool(), name='jira_agent')
+    # ToolManager.set(get_contact_agent_tool(), name='contact_agent')
+

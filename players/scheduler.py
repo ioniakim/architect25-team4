@@ -5,6 +5,8 @@
 import re
 import time
 import itertools
+import json
+import ast
 from typing import Any, Dict, Iterable, List, Union
 from typing_extensions import TypedDict
 from concurrent.futures import ThreadPoolExecutor, wait
@@ -14,14 +16,24 @@ from langchain_core.runnables.base import Runnable
 from .output_parser import Task
 
 
+# In the _get_observations function
+# ionia.kim
 def _get_observations(messages: List[BaseMessage]) -> Dict[int, Any]:
-    print(f'@@ {__file__} >> _get_observations: messages={messages}')
+    # print(f'@@ {__file__} >> _get_observations: messages={messages}')
     # Get all previous tool responses
     results = {}
     for message in messages[::-1]:
         if isinstance(message, FunctionMessage):
-            results[int(message.additional_kwargs["idx"])] = message.content
-    print(f'@@ {__file__} >> _get_observations: results={results}')
+            content = message.content
+            # Try to parse content if it's a JSON string; otherwise, keep as is.
+            if isinstance(content, str):
+                try:
+                    content = json.loads(content)
+                except json.JSONDecodeError:
+                    pass  # Keep it as a string if it's not valid JSON
+            results[int(message.additional_kwargs["idx"])] = content
+
+    # print(f'@@ {__file__} >> _get_observations: results={results}')
     return results
 
 
@@ -31,9 +43,9 @@ class SchedulerInput(TypedDict):
 
 
 def _execute_task(task, observations, config):
-    print(f'@@ {__file__} >> _execute_task: task={task}')
-    print(f'@@ {__file__} >> _execute_task: observations={observations}')
-    print(f'@@ {__file__} >> _execute_task: config={config}')
+    # print(f'@@ {__file__} >> _execute_task: task={task}')
+    # print(f'@@ {__file__} >> _execute_task: observations={observations}')
+    # print(f'@@ {__file__} >> _execute_task: config={config}')
     tool_to_use = task["tool"]
     if isinstance(tool_to_use, str):
         return tool_to_use
@@ -52,7 +64,7 @@ def _execute_task(task, observations, config):
         else:
             # This will likely fail
             resolved_args = args
-        print(f'@@ {__file__} >> _execute_task: resolved_args={resolved_args}')
+        # print(f'@@ {__file__} >> _execute_task: resolved_args={resolved_args}')
     except Exception as e:
         return (
             f"ERROR"
@@ -62,7 +74,7 @@ def _execute_task(task, observations, config):
     try:
         # return tool_to_use.invoke(resolved_args, config)
         output = tool_to_use.invoke(resolved_args, config)
-        print(f'@@ {__file__} >> _execute_task: output={output}')
+        # print(f'@@ {__file__} >> _execute_task: output={output}')
         return output
     except Exception as e:
         return (
@@ -72,50 +84,43 @@ def _execute_task(task, observations, config):
         )
 
 
-def _resolve_arg(arg: Union[str, Any], observations: Dict[int, Any]):
-    print(f'@@ {__file__} >> _resolve_arg: arg={arg}')
-    print(f'@@ {__file__} >> _resolve_arg: observations={observations}')
-    # $1 or ${1} -> 1
-    _id_pattern = r"\$\{?(\d+)\}?"
+def _resolve_arg(arg: Union[str, Any], observations: Dict[int, Any]) -> Any:
+    """
+    Resolves an argument, substituting placeholders like $1 with observations.
+    - If the argument is a string that is exactly a placeholder (e.g., "$1"),
+      it's replaced with the actual object from observations.
+    - If the argument is a string containing placeholders (e.g., "foo $1"),
+      it's formatted as a new string.
+    - If the argument is a list, it's resolved recursively.
+    """
+    if isinstance(arg, str):
+        # Case 1: The argument IS a placeholder for direct object replacement.
+        # Check if it starts with '$' and the rest is a digit.
+        if arg.startswith('$') and arg[1:].isdigit():
+            idx = int(arg[1:])
+            return observations.get(idx)
 
-    def replace_match(match):
-        # If the string is ${123}, match.group(0) is ${123}, and match.group(1) is 123.
-
-        # Return the match group, in this case the index, from the string. This is the index
-        # number we get back.
-        idx = int(match.group(1))
-
-        value = observations.get(idx, match.group(0))
-
-        # 조건에 따른 반환
-        if value in (None, [], {}, ""):
-            return []
-        else:
+        # Case 2: The argument is a string that might CONTAIN a placeholder.
+        # This is for string interpolation, and the result is always a string.
+        _id_pattern = r"\$\{?(\d+)\}?"
+        def replace_match(match: re.Match) -> str:
+            idx = int(match.group(1))
+            value = observations.get(idx, match.group(0))
             return str(value)
+        
+        return re.sub(_id_pattern, replace_match, arg)
 
-    # For dependencies on other tasks
-    # if isinstance(arg, str):
-    #     return re.sub(_id_pattern, replace_match, arg)
-    # elif isinstance(arg, list):
-    #     return [_resolve_arg(a, observations) for a in arg]
-    # else:
-    #     return str(arg)
-    if arg is None:
-        output = None
-    elif isinstance(arg, str):
-        output = re.sub(_id_pattern, replace_match, arg)
     elif isinstance(arg, (list, tuple)):
-        output = [_resolve_arg(a, observations) for a in arg]
+        # Recursively resolve arguments if they are in a list.
+        return [_resolve_arg(a, observations) for a in arg]
     else:
-        output = str(arg)
-    print(f'@@ {__file__} >> _resolve_arg: output={output}')
-    return output
-
+        # If the argument is not a string or list, return it as is.
+        return arg
 
 @as_runnable
 def _schedule_task(task_inputs, config):
-    print(f'@@ {__file__} >> _schedule_task: task_inputs={task_inputs}')
-    print(f'@@ {__file__} >> _schedule_task: config={config}')
+    # print(f'@@ {__file__} >> _schedule_task: task_inputs={task_inputs}')
+    # print(f'@@ {__file__} >> _schedule_task: config={config}')
     task: Task = task_inputs["task"]
     observations: Dict[int, Any] = task_inputs["observations"]
     try:
@@ -125,15 +130,15 @@ def _schedule_task(task_inputs, config):
 
         observation = traceback.format_exception(e)  # repr(e) +
     observations[task["idx"]] = observation
-    print(f'@@ {__file__} >> _schedule_task: observations={observations}')
+    # print(f'@@ {__file__} >> _schedule_task: observations={observations}')
 
 
 def _schedule_pending_task(
     task: Task, observations: Dict[int, Any], retry_after: float = 0.2
 ):
-    print(f'@@ {__file__} >> _schedule_pending_task: task={task}')
-    print(f'@@ {__file__} >> _schedule_pending_task: observations={observations}')
-    print(f'@@ {__file__} >> _schedule_pending_task: retry_after={retry_after}')
+    # print(f'@@ {__file__} >> _schedule_pending_task: task={task}')
+    # print(f'@@ {__file__} >> _schedule_pending_task: observations={observations}')
+    # print(f'@@ {__file__} >> _schedule_pending_task: retry_after={retry_after}')
     while True:
         deps = task["dependencies"]
         if deps and (any([dep not in observations for dep in deps])):
@@ -146,7 +151,7 @@ def _schedule_pending_task(
 
 @as_runnable
 def _schedule_tasks(scheduler_input: SchedulerInput) -> List[FunctionMessage]:
-    print(f'@@ {__file__} >> _schedule_tasks: scheduler_input={scheduler_input}')
+    # print(f'@@ {__file__} >> _schedule_tasks: scheduler_input={scheduler_input}')
     """Group the tasks into a DAG schedule."""
     # For streaming, we are making a few simplifying assumption:
     # 1. The LLM does not create cyclic dependencies
@@ -191,6 +196,8 @@ def _schedule_tasks(scheduler_input: SchedulerInput) -> List[FunctionMessage]:
         # All tasks have been submitted or enqueued
         # Wait for them to complete
         wait(futures)
+    # ionia.kim
+    # --- Start of Changed Block ---
     # Convert observations to new tool messages to add to the state
     new_observations = {
         k: (task_names[k], args_for_tasks[k], observations[k])
@@ -199,13 +206,15 @@ def _schedule_tasks(scheduler_input: SchedulerInput) -> List[FunctionMessage]:
     tool_messages = [
         FunctionMessage(
             name=name,
-            content=str(obs),
+            # Serialize dicts/lists to a JSON string, otherwise use str().
+            content=json.dumps(obs, ensure_ascii=False) if isinstance(obs, (dict, list)) else str(obs),
             additional_kwargs={"idx": k, "args": task_args},
             tool_call_id=k,
         )
         for k, (name, task_args, obs) in new_observations.items()
     ]
-    print(f'@@ {__file__} >> _schedule_tasks: tool_messages={tool_messages}')
+    # --- End of Changed Block ---
+    # print(f'@@ {__file__} >> _schedule_tasks: tool_messages={tool_messages}')
     return tool_messages
 
 
@@ -213,7 +222,7 @@ def build(planner: Runnable) -> Runnable:
 
     @as_runnable
     def plan_and_schedule(state):
-        print(f'@@ {__file__} >> plan_and_schedule: state={state}')
+        # print(f'@@ {__file__} >> plan_and_schedule: state={state}')
         messages = state["messages"]
         tasks = planner.stream(messages)
         # Begin executing the planner immediately
@@ -223,7 +232,7 @@ def build(planner: Runnable) -> Runnable:
             # Handle the case where tasks is empty.
             tasks = iter([])
         scheduled_tasks = _schedule_tasks.invoke({"messages": messages, "tasks": tasks})
-        print(f'@@ {__file__} >> plan_and_schedule: scheduled_tasks={scheduled_tasks}')
+        # print(f'@@ {__file__} >> plan_and_schedule: scheduled_tasks={scheduled_tasks}')
         return {"messages": scheduled_tasks}
 
     return plan_and_schedule
