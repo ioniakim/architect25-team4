@@ -40,7 +40,7 @@ def prepare():
         llm_type = "GOOGLE"
         config = {
             "api_key": google_api_key,
-            "model": os.getenv("GOOGLE_MODEL", 'gemini-2.0-flash'),
+            "model": os.getenv("GOOGLE_MODEL", 'gemini-2.0-flash-lite'),
             "base_url": None,
             "max_tokens": 1024,
             "temperature": 0,
